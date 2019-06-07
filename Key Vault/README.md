@@ -46,3 +46,39 @@ az ad sp list --display-name "TestApp" --query [].objectId -o tsv
 ```
 az keyvault set-policy --name "SD1597" --object-id "c6708856-5382-4573-a9fb-264df2032176" --secret-permissions get list
 ```
+
+### Install Nuget Packages
+```
+Microsoft.Azure.KeyVault
+Microsoft.Azure.Services.AppAuthentication
+```
+
+### Access Secrets from C# Application
+```c#
+static async Task Main(string[] args)
+{
+    try
+    {
+        KeyVaultClient keyVaultClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(GetAccessTokenAsync));
+        var secret = await keyVaultClient.GetSecretAsync("https://SD1597.vault.azure.net/secrets/App-ConnectionString").ConfigureAwait(false);
+
+        Console.WriteLine(secret.Value);
+    }
+    catch (KeyVaultErrorException keyVaultException)
+    {
+        Console.WriteLine(keyVaultException.Message);
+    }
+
+    Console.ReadLine();
+}
+
+private static async Task<string> GetAccessTokenAsync(string authority, string resource, string scope)
+{
+    var appCredentials = new ClientCredential("5f068843-8836-4644-8e45-02a7626a78ee", "AppSecret");
+    var context = new AuthenticationContext(authority, TokenCache.DefaultShared);
+
+    var result = await context.AcquireTokenAsync(resource, appCredentials);
+
+    return result.AccessToken;
+}
+```
