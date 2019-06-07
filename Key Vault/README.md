@@ -49,8 +49,8 @@ az keyvault set-policy --name "SD1597" --object-id "c6708856-5382-4573-a9fb-264d
 
 ### Install Nuget Packages
 ```
-Microsoft.Azure.KeyVault
-Microsoft.Azure.Services.AppAuthentication
+Install-Package Microsoft.Azure.KeyVault
+Install-Package Microsoft.Azure.Services.AppAuthentication
 ```
 
 ### Access Secrets from C# Application
