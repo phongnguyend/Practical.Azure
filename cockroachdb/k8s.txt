@@ -1,0 +1,92 @@
+az login
+az aks get-credentials --resource-group DEV2TA1 --name DEV2TA1
+az aks get-credentials --resource-group DEV2TA2 --name DEV2TA2
+
+kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
+
+DEV2TA1-DEV2TA2
+
+cockroach cert create-ca --certs-dir ./certs --ca-key ./my-safe-directory/ca.key
+cockroach cert create-client root --certs-dir ./certs --ca-key ./my-safe-directory/ca.key
+
+kubectl create namespace sea --context DEV2TA1
+kubectl create secret generic cockroachdb.client.root --from-file ./certs --context DEV2TA1
+kubectl create secret generic cockroachdb.client.root --namespace sea --from-file ./certs --context DEV2TA1
+cockroach cert create-node --certs-dir ./certs --ca-key ./my-safe-directory/ca.key localhost 127.0.0.1 cockroachdb-public cockroachdb-public.default cockroachdb-public.sea cockroachdb-public.sea.svc.cluster.local *.cockroachdb *.cockroachdb.sea *.cockroachdb.sea.svc.cluster.local
+kubectl create secret generic cockroachdb.node --namespace sea  --from-file  ./certs --context DEV2TA1
+kubectl apply -f dns-lb.yaml --context DEV2TA1
+
+rm ./certs/node.*
+
+kubectl create namespace us --context DEV2TA2
+kubectl create secret generic cockroachdb.client.root --from-file ./certs --context DEV2TA2
+kubectl create secret generic cockroachdb.client.root --namespace us --from-file ./certs --context DEV2TA2
+cockroach cert create-node --certs-dir ./certs --ca-key ./my-safe-directory/ca.key localhost 127.0.0.1 cockroachdb-public cockroachdb-public.default cockroachdb-public.us cockroachdb-public.us.svc.cluster.local *.cockroachdb *.cockroachdb.us *.cockroachdb.us.svc.cluster.local
+kubectl create secret generic cockroachdb.node --namespace us --from-file  ./certs --context DEV2TA2
+kubectl apply -f dns-lb.yaml --context DEV2TA2
+
+------configure dns
+
+kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA1 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
+kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA2 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
+
+'10.240.0.7'
+
+kubectl apply -f ./generated/dns-configmap-sea.yaml --namespace kube-system --context DEV2TA1
+kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA1
+
+kubectl apply -f ./generated/dns-configmap-us.yaml --namespace kube-system --context DEV2TA2
+kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA2
+
+kubectl apply -f ./generated/external-name-svc-sea.yaml --context DEV2TA1
+kubectl apply -f ./generated/external-name-svc-us.yaml --context DEV2TA2
+
+--join cockroachdb-0.cockroachdb.sea,cockroachdb-1.cockroachdb.sea,cockroachdb-2.cockroachdb.sea,cockroachdb-0.cockroachdb.us,cockroachdb-1.cockroachdb.us,cockroachdb-2.cockroachdb.us
+--locality zone=sea
+--locality zone=us
+
+kubectl apply -f ./generated/cockroachdb-statefulset-secure-sea.yaml --namespace sea --context DEV2TA1
+kubectl apply -f ./generated/cockroachdb-statefulset-secure-us.yaml --namespace us --context DEV2TA2
+
+kubectl apply -f ./generated/cockroachdb-statefulset-insecure-sea.yaml --namespace sea --context DEV2TA1
+kubectl apply -f ./generated/cockroachdb-statefulset-insecure-us.yaml --namespace us --context DEV2TA2
+
+kubectl create -f cluster-init-secure.yaml --namespace sea --context DEV2TA1
+kubectl create -f cluster-init-secure.yaml --namespace us --context DEV2TA2
+
+kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA1
+kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA2
+
+kubectl create -f client-secure.yaml --context DEV2TA1
+kubectl create -f client-secure.yaml --context DEV2TA2
+
+kubectl exec -it cockroachdb-client-secure -- ./cockroach sql --certs-dir=/cockroach-certs --host=cockroachdb-public
+
+CREATE USER roach WITH PASSWORD 'Q7gc8rEdS';
+
+ALTER RANGE default CONFIGURE ZONE USING num_replicas = 5;
+
+CREATE DATABASE bank;
+CREATE TABLE bank.accounts (id INT PRIMARY KEY, balance DECIMAL);
+INSERT INTO bank.accounts VALUES (1, 1000.50);
+SELECT * FROM bank.accounts;
+
+
+kubectl port-forward cockroachdb-0 8080 --namespace=sea --context=DEV2TA1
+kubectl port-forward cockroachdb-0 8080 --namespace=us --context=DEV2TA2
+
+kubectl scale statefulset cockroachdb --replicas=0 --namespace=sea --context=DEV2TA1
+kubectl scale statefulset cockroachdb --replicas=0 --namespace=us --context=DEV2TA2
+
+kubectl scale statefulset cockroachdb --replicas=3 --namespace=sea --context=DEV2TA1
+kubectl scale statefulset cockroachdb --replicas=3 --namespace=us --context=DEV2TA2
+
+kubectl get pods --namespace=sea --context DEV2TA1
+kubectl get pods --namespace=us --context DEV2TA2
+
+---- Test DNS
+
+kubectl apply -f https://k8s.io/examples/admin/dns/busybox.yaml
+kubectl get pods --namespace=kube-system -l k8s-app=kube-dns
+kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.sea
+kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.us
