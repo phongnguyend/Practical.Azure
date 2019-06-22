@@ -22,3 +22,6 @@
 
 [Running CockroachDB across multiple Kubernetes clusters](https://github.com/cockroachdb/cockroach/tree/master/cloud/kubernetes/multiregion)
 
+[Locality and Replication Zones](https://www.cockroachlabs.com/docs/stable/training/locality-and-replication-zones.html)
+
+[Configure Replication Zones](https://www.cockroachlabs.com/docs/stable/configure-replication-zones.html)
