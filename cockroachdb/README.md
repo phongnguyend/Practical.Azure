@@ -16,7 +16,11 @@
 
 [Secure traffic between pods using network policies in Azure Kubernetes Service (AKS)](https://docs.microsoft.com/en-us/azure/aks/use-network-policies)
 
+[Best practices for business continuity and disaster recovery in Azure Kubernetes Service (AKS)](https://docs.microsoft.com/en-us/azure/aks/operator-best-practices-multi-region)
+
 ## CockroachDB
+
+[Gotchas & Solutions Running a Distributed System Across Kubernetes Clusters](https://www.cockroachlabs.com/blog/experience-report-running-across-multiple-kubernetes-clusters/)
 
 [Orchestrate CockroachDB Across Multiple Kubernetes Clusters](https://www.cockroachlabs.com/docs/stable/orchestrate-cockroachdb-with-kubernetes-multi-cluster.html)
 
