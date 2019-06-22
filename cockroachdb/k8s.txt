@@ -6,6 +6,9 @@ kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-adm
 
 DEV2TA1-DEV2TA2
 
+kubectl proxy --context DEV2TA1
+kubectl proxy --context DEV2TA2
+
 cockroach cert create-ca --certs-dir ./certs --ca-key ./my-safe-directory/ca.key
 cockroach cert create-client root --certs-dir ./certs --ca-key ./my-safe-directory/ca.key
 
@@ -44,36 +47,36 @@ kubectl apply -f ./generated/external-name-svc-us.yaml --context DEV2TA2
 
 
 ---- Begin Test DNS
-
 kubectl apply -f https://k8s.io/examples/admin/dns/busybox.yaml --context DEV2TA1
 kubectl apply -f https://k8s.io/examples/admin/dns/busybox.yaml --context DEV2TA2
 kubectl get pods --namespace=kube-system -l k8s-app=kube-dns 
 kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.sea
 kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.us
-
 ---- End Test DNS
 
 --join cockroachdb-0.cockroachdb.sea,cockroachdb-1.cockroachdb.sea,cockroachdb-2.cockroachdb.sea,cockroachdb-0.cockroachdb.us,cockroachdb-1.cockroachdb.us,cockroachdb-2.cockroachdb.us
---locality zone=sea
---locality zone=us
+--locality region=pa,zone=sea
+--locality region=us,zone=us-central
 
+---- Begin Secure Mode
 kubectl apply -f ./generated/cockroachdb-statefulset-secure-sea.yaml --namespace sea --context DEV2TA1
 kubectl apply -f ./generated/cockroachdb-statefulset-secure-us.yaml --namespace us --context DEV2TA2
 kubectl create -f cluster-init-secure.yaml --namespace sea --context DEV2TA1
 kubectl create -f cluster-init-secure.yaml --namespace us --context DEV2TA2
+kubectl create -f client-secure.yaml --context DEV2TA1
+kubectl create -f client-secure.yaml --context DEV2TA2
+---- End Secure Mode
 
+---- Begin Insecure Mode
 kubectl apply -f ./generated/cockroachdb-statefulset-insecure-sea.yaml --namespace sea --context DEV2TA1
 kubectl apply -f ./generated/cockroachdb-statefulset-insecure-us.yaml --namespace us --context DEV2TA2
 kubectl create -f cluster-init-insecure.yaml --namespace sea --context DEV2TA1
 kubectl create -f cluster-init-insecure.yaml --namespace us --context DEV2TA2
-
-
+---- End Insecure Mode
 
 kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA1
 kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA2
 
-kubectl create -f client-secure.yaml --context DEV2TA1
-kubectl create -f client-secure.yaml --context DEV2TA2
 
 kubectl exec -it cockroachdb-client-secure -- ./cockroach sql --certs-dir=/cockroach-certs --host=cockroachdb-public
 
@@ -86,9 +89,10 @@ CREATE TABLE bank.accounts (id INT PRIMARY KEY, balance DECIMAL);
 INSERT INTO bank.accounts VALUES (1, 1000.50);
 SELECT * FROM bank.accounts;
 
-
-kubectl port-forward cockroachdb-0 8081 --namespace=sea --context=DEV2TA1
-kubectl port-forward cockroachdb-0 8082 --namespace=us --context=DEV2TA2
+----- Begin Cockroach Portal
+kubectl port-forward cockroachdb-0 8080 --namespace=sea --context=DEV2TA1
+kubectl port-forward cockroachdb-0 8080 --namespace=us --context=DEV2TA2
+----- End Cockroach Portal
 
 kubectl scale statefulset cockroachdb --replicas=0 --namespace=sea --context=DEV2TA1
 kubectl scale statefulset cockroachdb --replicas=0 --namespace=us --context=DEV2TA2
