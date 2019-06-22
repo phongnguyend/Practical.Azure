@@ -75,7 +75,6 @@ metadata:
   labels:
     app: cockroachdb
 spec:
-  #type: LoadBalancer
   ports:
   # The main port, served by gRPC, serves Postgres-flavor SQL, internode
   # traffic and the cli.
@@ -110,7 +109,6 @@ metadata:
     prometheus.io/path: "_status/vars"
     prometheus.io/port: "8080"
 spec:
-  #type: LoadBalancer
   ports:
   - port: 26257
     targetPort: 26257

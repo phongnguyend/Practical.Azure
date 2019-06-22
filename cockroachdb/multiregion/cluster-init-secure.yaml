@@ -19,7 +19,7 @@ spec:
           - "/cockroach/cockroach"
           - "init"
           - "--certs-dir=/cockroach-certs"
-          - "--host=cockroachdb-0.cockroachdb"
+          - "--host=cockroachdb-0.cockroachdb.sea"
       restartPolicy: OnFailure
       volumes:
       - name: client-certs

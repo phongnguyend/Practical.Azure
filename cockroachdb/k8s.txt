@@ -30,7 +30,8 @@ kubectl apply -f dns-lb.yaml --context DEV2TA2
 kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA1 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
 kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA2 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
 
-'10.240.0.7'
+'10.240.0.97'
+'11.240.0.97'
 
 kubectl apply -f ./generated/dns-configmap-sea.yaml --namespace kube-system --context DEV2TA1
 kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA1
@@ -41,18 +42,32 @@ kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA
 kubectl apply -f ./generated/external-name-svc-sea.yaml --context DEV2TA1
 kubectl apply -f ./generated/external-name-svc-us.yaml --context DEV2TA2
 
+
+---- Begin Test DNS
+
+kubectl apply -f https://k8s.io/examples/admin/dns/busybox.yaml --context DEV2TA1
+kubectl apply -f https://k8s.io/examples/admin/dns/busybox.yaml --context DEV2TA2
+kubectl get pods --namespace=kube-system -l k8s-app=kube-dns 
+kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.sea
+kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.us
+
+---- End Test DNS
+
 --join cockroachdb-0.cockroachdb.sea,cockroachdb-1.cockroachdb.sea,cockroachdb-2.cockroachdb.sea,cockroachdb-0.cockroachdb.us,cockroachdb-1.cockroachdb.us,cockroachdb-2.cockroachdb.us
 --locality zone=sea
 --locality zone=us
 
 kubectl apply -f ./generated/cockroachdb-statefulset-secure-sea.yaml --namespace sea --context DEV2TA1
 kubectl apply -f ./generated/cockroachdb-statefulset-secure-us.yaml --namespace us --context DEV2TA2
+kubectl create -f cluster-init-secure.yaml --namespace sea --context DEV2TA1
+kubectl create -f cluster-init-secure.yaml --namespace us --context DEV2TA2
 
 kubectl apply -f ./generated/cockroachdb-statefulset-insecure-sea.yaml --namespace sea --context DEV2TA1
 kubectl apply -f ./generated/cockroachdb-statefulset-insecure-us.yaml --namespace us --context DEV2TA2
+kubectl create -f cluster-init-insecure.yaml --namespace sea --context DEV2TA1
+kubectl create -f cluster-init-insecure.yaml --namespace us --context DEV2TA2
 
-kubectl create -f cluster-init-secure.yaml --namespace sea --context DEV2TA1
-kubectl create -f cluster-init-secure.yaml --namespace us --context DEV2TA2
+
 
 kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA1
 kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA2
@@ -72,8 +87,8 @@ INSERT INTO bank.accounts VALUES (1, 1000.50);
 SELECT * FROM bank.accounts;
 
 
-kubectl port-forward cockroachdb-0 8080 --namespace=sea --context=DEV2TA1
-kubectl port-forward cockroachdb-0 8080 --namespace=us --context=DEV2TA2
+kubectl port-forward cockroachdb-0 8081 --namespace=sea --context=DEV2TA1
+kubectl port-forward cockroachdb-0 8082 --namespace=us --context=DEV2TA2
 
 kubectl scale statefulset cockroachdb --replicas=0 --namespace=sea --context=DEV2TA1
 kubectl scale statefulset cockroachdb --replicas=0 --namespace=us --context=DEV2TA2
@@ -84,9 +99,3 @@ kubectl scale statefulset cockroachdb --replicas=3 --namespace=us --context=DEV2
 kubectl get pods --namespace=sea --context DEV2TA1
 kubectl get pods --namespace=us --context DEV2TA2
 
----- Test DNS
-
-kubectl apply -f https://k8s.io/examples/admin/dns/busybox.yaml
-kubectl get pods --namespace=kube-system -l k8s-app=kube-dns
-kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.sea
-kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.us
