@@ -1,13 +1,31 @@
+------ Begin Set up VPN
+
+az network vnet show --resource-group DEV2TA1 --name DEV2TA1-vnet --query id --out tsv
+az network vnet show --resource-group DEV2TA2 --name DEV2TA2-vnet --query id --out tsv
+az network vnet show --resource-group DEV2TA3 --name DEV2TA3-vnet --query id --out tsv
+
+az network vnet peering create -g DEV2TA1 -n DEV2TA1-DEV2TA2 --vnet-name DEV2TA1-vnet --remote-vnet /subscriptions/2f740cf0-f72d-49a7-b69b-893aafa173f2/resourceGroups/DEV2TA2/providers/Microsoft.Network/virtualNetworks/DEV2TA2-vnet --allow-vnet-access
+az network vnet peering create -g DEV2TA1 -n DEV2TA1-DEV2TA3 --vnet-name DEV2TA1-vnet --remote-vnet /subscriptions/2f740cf0-f72d-49a7-b69b-893aafa173f2/resourceGroups/DEV2TA3/providers/Microsoft.Network/virtualNetworks/DEV2TA3-vnet --allow-vnet-access
+az network vnet peering create -g DEV2TA2 -n DEV2TA2-DEV2TA1 --vnet-name DEV2TA2-vnet --remote-vnet /subscriptions/2f740cf0-f72d-49a7-b69b-893aafa173f2/resourceGroups/DEV2TA1/providers/Microsoft.Network/virtualNetworks/DEV2TA1-vnet --allow-vnet-access
+az network vnet peering create -g DEV2TA2 -n DEV2TA2-DEV2TA3 --vnet-name DEV2TA2-vnet --remote-vnet /subscriptions/2f740cf0-f72d-49a7-b69b-893aafa173f2/resourceGroups/DEV2TA3/providers/Microsoft.Network/virtualNetworks/DEV2TA3-vnet --allow-vnet-access
+az network vnet peering create -g DEV2TA3 -n DEV2TA3-DEV2TA1 --vnet-name DEV2TA3-vnet --remote-vnet /subscriptions/2f740cf0-f72d-49a7-b69b-893aafa173f2/resourceGroups/DEV2TA1/providers/Microsoft.Network/virtualNetworks/DEV2TA1-vnet --allow-vnet-access
+az network vnet peering create -g DEV2TA3 -n DEV2TA3-DEV2TA2 --vnet-name DEV2TA3-vnet --remote-vnet /subscriptions/2f740cf0-f72d-49a7-b69b-893aafa173f2/resourceGroups/DEV2TA2/providers/Microsoft.Network/virtualNetworks/DEV2TA2-vnet --allow-vnet-access
+
+------- End Set up VPN
+
+
 az login
-az aks get-credentials --resource-group DEV2TA1 --name DEV2TA1
-az aks get-credentials --resource-group DEV2TA2 --name DEV2TA2
+az aks get-credentials --resource-group DEV2TA1 --name DEV2TA1 --overwrite-existing
+az aks get-credentials --resource-group DEV2TA2 --name DEV2TA2 --overwrite-existing
+az aks get-credentials --resource-group DEV2TA3 --name DEV2TA3 --overwrite-existing
 
 kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard
 
-DEV2TA1-DEV2TA2
+
 
 kubectl proxy --context DEV2TA1
 kubectl proxy --context DEV2TA2
+kubectl proxy --context DEV2TA3
 
 cockroach cert create-ca --certs-dir ./certs --ca-key ./my-safe-directory/ca.key
 cockroach cert create-client root --certs-dir ./certs --ca-key ./my-safe-directory/ca.key
@@ -17,7 +35,6 @@ kubectl create secret generic cockroachdb.client.root --from-file ./certs --cont
 kubectl create secret generic cockroachdb.client.root --namespace sea --from-file ./certs --context DEV2TA1
 cockroach cert create-node --certs-dir ./certs --ca-key ./my-safe-directory/ca.key localhost 127.0.0.1 cockroachdb-public cockroachdb-public.default cockroachdb-public.sea cockroachdb-public.sea.svc.cluster.local *.cockroachdb *.cockroachdb.sea *.cockroachdb.sea.svc.cluster.local
 kubectl create secret generic cockroachdb.node --namespace sea  --from-file  ./certs --context DEV2TA1
-kubectl apply -f dns-lb.yaml --context DEV2TA1
 
 rm ./certs/node.*
 
@@ -26,15 +43,31 @@ kubectl create secret generic cockroachdb.client.root --from-file ./certs --cont
 kubectl create secret generic cockroachdb.client.root --namespace us --from-file ./certs --context DEV2TA2
 cockroach cert create-node --certs-dir ./certs --ca-key ./my-safe-directory/ca.key localhost 127.0.0.1 cockroachdb-public cockroachdb-public.default cockroachdb-public.us cockroachdb-public.us.svc.cluster.local *.cockroachdb *.cockroachdb.us *.cockroachdb.us.svc.cluster.local
 kubectl create secret generic cockroachdb.node --namespace us --from-file  ./certs --context DEV2TA2
+
+rm ./certs/node.*
+
+kubectl create namespace eu --context DEV2TA3
+kubectl create secret generic cockroachdb.client.root --from-file ./certs --context DEV2TA3
+kubectl create secret generic cockroachdb.client.root --namespace eu --from-file ./certs --context DEV2TA3
+cockroach cert create-node --certs-dir ./certs --ca-key ./my-safe-directory/ca.key localhost 127.0.0.1 cockroachdb-public cockroachdb-public.default cockroachdb-public.eu cockroachdb-public.eu.svc.cluster.local *.cockroachdb *.cockroachdb.eu *.cockroachdb.eu.svc.cluster.local
+kubectl create secret generic cockroachdb.node --namespace eu --from-file  ./certs --context DEV2TA3
+
+---- Begin Configure DNS
+
+kubectl apply -f dns-lb.yaml --context DEV2TA1
 kubectl apply -f dns-lb.yaml --context DEV2TA2
-
-------configure dns
-
+kubectl apply -f dns-lb.yaml --context DEV2TA3
 kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA1 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
 kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA2 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
+kubectl get svc kube-dns-lb --namespace kube-system --context DEV2TA3 --template '{{range.status.loadBalancer.ingress}}{{.ip}}{{end}}'
 
 '10.240.0.97'
 '11.240.0.97'
+'12.240.0.97'
+
+13.76.138.153
+23.99.151.229
+13.79.26.142
 
 kubectl apply -f ./generated/dns-configmap-sea.yaml --namespace kube-system --context DEV2TA1
 kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA1
@@ -42,8 +75,14 @@ kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA
 kubectl apply -f ./generated/dns-configmap-us.yaml --namespace kube-system --context DEV2TA2
 kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA2
 
+kubectl apply -f ./generated/dns-configmap-eu.yaml --namespace kube-system --context DEV2TA3
+kubectl delete pods -l k8s-app=kube-dns --namespace kube-system --context DEV2TA3
+
 kubectl apply -f ./generated/external-name-svc-sea.yaml --context DEV2TA1
 kubectl apply -f ./generated/external-name-svc-us.yaml --context DEV2TA2
+kubectl apply -f ./generated/external-name-svc-eu.yaml --context DEV2TA3
+
+---- End Configure DNS
 
 
 ---- Begin Test DNS
@@ -54,9 +93,10 @@ kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.sea
 kubectl exec -ti busybox -- nslookup cockroachdb-0.cockroachdb.us
 ---- End Test DNS
 
---join cockroachdb-0.cockroachdb.sea,cockroachdb-1.cockroachdb.sea,cockroachdb-2.cockroachdb.sea,cockroachdb-0.cockroachdb.us,cockroachdb-1.cockroachdb.us,cockroachdb-2.cockroachdb.us
+--join cockroachdb-0.cockroachdb.sea,cockroachdb-1.cockroachdb.sea,cockroachdb-2.cockroachdb.sea,cockroachdb-0.cockroachdb.us,cockroachdb-1.cockroachdb.us,cockroachdb-2.cockroachdb.us,cockroachdb-0.cockroachdb.eu,cockroachdb-1.cockroachdb.eu,cockroachdb-2.cockroachdb.eu
 --locality region=pa,zone=sea
 --locality region=us,zone=us-central
+--locality region=eu,zone=eu-north
 
 ---- Begin Secure Mode
 kubectl apply -f ./generated/cockroachdb-statefulset-secure-sea.yaml --namespace sea --context DEV2TA1
@@ -70,12 +110,15 @@ kubectl create -f client-secure.yaml --context DEV2TA2
 ---- Begin Insecure Mode
 kubectl apply -f ./generated/cockroachdb-statefulset-insecure-sea.yaml --namespace sea --context DEV2TA1
 kubectl apply -f ./generated/cockroachdb-statefulset-insecure-us.yaml --namespace us --context DEV2TA2
+kubectl apply -f ./generated/cockroachdb-statefulset-insecure-eu.yaml --namespace eu --context DEV2TA3
 kubectl create -f cluster-init-insecure.yaml --namespace sea --context DEV2TA1
 kubectl create -f cluster-init-insecure.yaml --namespace us --context DEV2TA2
+kubectl create -f cluster-init-insecure.yaml --namespace eu --context DEV2TA3
 ---- End Insecure Mode
 
 kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA1
 kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA2
+kubectl get pods --selector app=cockroachdb --all-namespaces --context DEV2TA3
 
 
 kubectl exec -it cockroachdb-client-secure -- ./cockroach sql --certs-dir=/cockroach-certs --host=cockroachdb-public

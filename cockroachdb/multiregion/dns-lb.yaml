@@ -5,7 +5,7 @@ metadata:
     # TODO: Check whether AWS/Azure can use internal load balancers. Google
     # can't, unfortunately.
     # service.beta.kubernetes.io/aws-load-balancer-internal: "true"
-    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "true" # should enable if same region
     # cloud.google.com/load-balancer-type: "Internal"
   labels:
     k8s-app: kube-dns
